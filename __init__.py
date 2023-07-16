@@ -112,7 +112,7 @@ def getOffsetFromShapeName(shapeName):
     objectXOffset = letterXOffsetDict[shapeName[-2:-1]]
     #get Y offset from number part of object name
     objectYOffset = int(shapeName[-1:])*-3
-    return [objectXOffset,objectYOffset]
+    return [objectXOffset,objectYOffset,0]
     
 
 def createBoneShapesIfNotExists():
@@ -424,8 +424,36 @@ def createBoneShapesIfNotExists():
             #apply offsets for display
             shapeOffset = getOffsetFromShapeName(customBoneName)
             customBoneObject.location = [shapeOffset[0],shapeOffset[1],0]
-            
-            
+
+#function to make one named custom bone with corresponding offset and custom display object
+def makeCustomBone(armatureObject,customBoneName,finalBoneName,manualOffset,manualCustomObject,useEulerRotation):
+    bpy.ops.object.mode_set(mode='EDIT', toggle=False)
+    editBone = armatureObject.data.edit_bones.new(finalBoneName)
+    #get edit bone offsets
+    boneOffset = None
+    if(manualOffset != None):
+        boneOffset = manualOffset
+    else:
+        boneOffset = getOffsetFromShapeName(customBoneName)
+        boneOffset[2] = boneOffset[1]
+        boneOffset[1] = 0
+    print(boneOffset)
+    editBone.head = boneOffset
+    editBone.tail = [boneOffset[0],boneOffset[1],boneOffset[2]+1]
+    #force frame update for newly added bone
+    bpy.context.scene.frame_set(bpy.context.scene.frame_current)
+    bpy.ops.object.mode_set(mode='POSE', toggle=False)
+    #manually set a custom display object if not worked out automatically based on name
+    if(manualCustomObject != None):
+        armatureObject.pose.bones[finalBoneName].custom_shape = manualCustomObject
+    else:
+        armatureObject.pose.bones[finalBoneName].custom_shape = bpy.data.objects[customBoneName]
+    #set rotation mode to euler if needed
+    if(useEulerRotation == True):
+        armatureObject.pose.bones[finalBoneName].rotation_mode = 'XYZ'
+    bpy.ops.object.mode_set(mode='OBJECT', toggle=False)
+    #objects to be parented to bones, but deformation is not expected
+    armatureObject.data.bones[finalBoneName].use_deform = False
     
 
 #make new armature operator
@@ -447,20 +475,10 @@ class ANGSPRI_OT_MakeArmature(bpy.types.Operator):
         armatureObject.select_set(True)
         bpy.context.view_layer.objects.active = armatureObject
         for customBoneName in boneShapesNameList:
-            finalBoneName = context.scene.ANGSPRISpriteName + customBoneName[-3:]
-            bpy.ops.object.mode_set(mode='EDIT', toggle=False)
-            editBone = armatureObject.data.edit_bones.new(finalBoneName)
-            #get edit bone offsets
-            boneOffset = getOffsetFromShapeName(customBoneName)
-            editBone.head = [boneOffset[0],0,boneOffset[1]]
-            editBone.tail = [boneOffset[0],0,boneOffset[1]+1]
-            #force frame update for newly added bone
-            bpy.context.scene.frame_set(bpy.context.scene.frame_current)
-            bpy.ops.object.mode_set(mode='POSE', toggle=False)
-            armatureObject.pose.bones[finalBoneName].custom_shape = bpy.data.objects[customBoneName]
-            bpy.ops.object.mode_set(mode='OBJECT', toggle=False)
-            #objects to be parented to bones, but deformation is not expected
-            armatureObject.data.bones[finalBoneName].use_deform = False
+            makeCustomBone(armatureObject,customBoneName,context.scene.ANGSPRISpriteName + customBoneName[-3:],None,None,False)
+        #make main handle control bone
+        makeCustomBone(armatureObject,None,context.scene.ANGSPRISpriteName + "_main_handle",[0,0,0],bpy.data.objects["angspri_rothelp_D2"],True)
+        
         
         return {'FINISHED'}
    
