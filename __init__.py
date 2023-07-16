@@ -36,8 +36,10 @@ class ANGSPRI_PT_SetupPanel(bpy.types.Panel):
     bl_label = 'Angle Sprites Setup'
     bl_context = 'objectmode'
     bl_category = 'Angle Sprites'
+    bpy.types.Scene.ANGSPRISpriteName = bpy.props.StringProperty(name="Sprite Name",description="The name of the sprite component to add or change rig parts for",default="Sprite")
 
     def draw(self, context):
+        self.layout.prop(context.scene,"ANGSPRISpriteName")
         self.layout.operator("angspri.makearmature", text ="Make Initial Angle Sprites Rig")
 
 def createCollectionIfNotExists(collectionName):
@@ -49,8 +51,8 @@ def createCollectionIfNotExists(collectionName):
         resultingCollection = bpy.data.collections[collectionName]
     return resultingCollection
 
-def createBoneShapesIfNotExists():
-    boneShapesNameList = [
+def getBoneShapesList():
+    return [
         "angspri_rothelp_A0",
         "angspri_rothelp_A1",
         "angspri_rothelp_A2",
@@ -92,6 +94,29 @@ def createBoneShapesIfNotExists():
         "angspri_rothelp_H3",
         "angspri_rothelp_H4",
     ]
+
+#get the x and y offset from the name of a sprite rig object or bone
+def getOffsetFromShapeName(shapeName):
+    #set location of object based on name
+    letterXOffsetDict = {
+        'A':0,
+        'B':3,
+        'C':6,
+        'D':9,
+        'E':12,
+        'F':15,
+        'G':18,
+        'H':21
+    }
+    #get X offset from letter part dictionary mapping of object name
+    objectXOffset = letterXOffsetDict[shapeName[-2:-1]]
+    #get Y offset from number part of object name
+    objectYOffset = int(shapeName[-1:])*-3
+    return [objectXOffset,objectYOffset]
+    
+
+def createBoneShapesIfNotExists():
+    boneShapesNameList = getBoneShapesList()
     #create custom bone shapes if they don't exist
     for customBoneName in boneShapesNameList:
         #if a mesh object doesn't already exist for the custom shape
@@ -391,26 +416,14 @@ def createBoneShapesIfNotExists():
                 customBoneMesh = bpy.data.meshes[customBoneMeshName]
             #make sure the custom bone objects have a collection to go into
             angspriCollection = createCollectionIfNotExists("angspri_interface_objects")
+            angspriCollection.hide_viewport = True
             #assign mesh data to new object
             customBoneObject = bpy.data.objects.new(customBoneName,customBoneMesh)
             #add object to scene
             angspriCollection.objects.link(customBoneObject)
-            #set location of object based on name
-            letterXOffsetDict = {
-                'A':0,
-                'B':3,
-                'C':6,
-                'D':9,
-                'E':12,
-                'F':15,
-                'G':18,
-                'H':21
-            }
-            #get X offset from letter part dictionary mapping of object name
-            objectXOffset = letterXOffsetDict[customBoneName[-2:-1]]
-            #get Y offset from number part of object name
-            objectYOffset = int(customBoneName[-1:])*-3
-            customBoneObject.location = [objectXOffset,objectYOffset,0]
+            #apply offsets for display
+            shapeOffset = getOffsetFromShapeName(customBoneName)
+            customBoneObject.location = [shapeOffset[0],shapeOffset[1],0]
             
             
     
@@ -422,8 +435,33 @@ class ANGSPRI_OT_MakeArmature(bpy.types.Operator):
     bl_description = "Make an armature with a bone setup to control one 40-way sprite"
     
     def execute(self, context):
+        #make sure custom bone shape objects exist
         createBoneShapesIfNotExists()
-
+        #make armature object
+        armatureData = bpy.data.armatures.new("angspri_armaturedata")
+        armatureObject = bpy.data.objects.new("angspri_armature",armatureData)
+        bpy.context.scene.collection.objects.link(armatureObject)
+        #add bones with custom shapes
+        boneShapesNameList = getBoneShapesList()
+        bpy.ops.object.select_all(action='DESELECT')
+        armatureObject.select_set(True)
+        bpy.context.view_layer.objects.active = armatureObject
+        for customBoneName in boneShapesNameList:
+            finalBoneName = context.scene.ANGSPRISpriteName + customBoneName[-3:]
+            bpy.ops.object.mode_set(mode='EDIT', toggle=False)
+            editBone = armatureObject.data.edit_bones.new(finalBoneName)
+            #get edit bone offsets
+            boneOffset = getOffsetFromShapeName(customBoneName)
+            editBone.head = [boneOffset[0],0,boneOffset[1]]
+            editBone.tail = [boneOffset[0],0,boneOffset[1]+1]
+            #force frame update for newly added bone
+            bpy.context.scene.frame_set(bpy.context.scene.frame_current)
+            bpy.ops.object.mode_set(mode='POSE', toggle=False)
+            armatureObject.pose.bones[finalBoneName].custom_shape = bpy.data.objects[customBoneName]
+            bpy.ops.object.mode_set(mode='OBJECT', toggle=False)
+            #objects to be parented to bones, but deformation is not expected
+            armatureObject.data.bones[finalBoneName].use_deform = False
+        
         return {'FINISHED'}
    
 #register and unregister panels and operators
