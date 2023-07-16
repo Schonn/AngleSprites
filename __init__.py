@@ -437,7 +437,6 @@ def makeCustomBone(armatureObject,customBoneName,finalBoneName,manualOffset,manu
         boneOffset = getOffsetFromShapeName(customBoneName)
         boneOffset[2] = boneOffset[1]
         boneOffset[1] = 0
-    print(boneOffset)
     editBone.head = boneOffset
     editBone.tail = [boneOffset[0],boneOffset[1],boneOffset[2]+1]
     #force frame update for newly added bone
@@ -469,15 +468,22 @@ class ANGSPRI_OT_MakeArmature(bpy.types.Operator):
         armatureData = bpy.data.armatures.new("angspri_armaturedata")
         armatureObject = bpy.data.objects.new("angspri_armature",armatureData)
         bpy.context.scene.collection.objects.link(armatureObject)
-        #add bones with custom shapes
+        #add sprite shelf bone
         boneShapesNameList = getBoneShapesList()
         bpy.ops.object.select_all(action='DESELECT')
         armatureObject.select_set(True)
         bpy.context.view_layer.objects.active = armatureObject
+        bpy.ops.object.mode_set(mode='EDIT', toggle=False)
+        editBone = armatureObject.data.edit_bones.new("angspri_shelf")
+        editBone.head = [-10,0,0]
+        editBone.tail = [-10,0,1]
+        bpy.ops.object.mode_set(mode='OBJECT', toggle=False)
+        #add bones with custom shapes
         for customBoneName in boneShapesNameList:
             makeCustomBone(armatureObject,customBoneName,context.scene.ANGSPRISpriteName + customBoneName[-3:],None,None,False)
         #make main handle control bone
         makeCustomBone(armatureObject,None,context.scene.ANGSPRISpriteName + "_main_handle",[0,0,0],bpy.data.objects["angspri_rothelp_D2"],True)
+
         
         
         return {'FINISHED'}
