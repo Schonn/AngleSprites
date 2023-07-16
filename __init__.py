@@ -96,6 +96,7 @@ def createBoneShapesIfNotExists():
     for customBoneName in boneShapesNameList:
         #if a mesh object doesn't already exist for the custom shape
         if((customBoneName in bpy.data.objects) == False):
+            customBoneObject = None
             customBoneMeshName = customBoneName + "_mesh"
             customBoneMesh = None
             #make the mesh data first if it doesn't already exist
@@ -391,11 +392,27 @@ def createBoneShapesIfNotExists():
             #make sure the custom bone objects have a collection to go into
             angspriCollection = createCollectionIfNotExists("angspri_interface_objects")
             #assign mesh data to new object
-            customBoneMesh = bpy.data.objects.new(customBoneName,customBoneMesh)
+            customBoneObject = bpy.data.objects.new(customBoneName,customBoneMesh)
             #add object to scene
-            angspriCollection.objects.link(customBoneMesh)
+            angspriCollection.objects.link(customBoneObject)
             #set location of object based on name
-                
+            letterXOffsetDict = {
+                'A':0,
+                'B':3,
+                'C':6,
+                'D':9,
+                'E':12,
+                'F':15,
+                'G':18,
+                'H':21
+            }
+            #get X offset from letter part dictionary mapping of object name
+            objectXOffset = letterXOffsetDict[customBoneName[-2:-1]]
+            #get Y offset from number part of object name
+            objectYOffset = int(customBoneName[-1:])*-3
+            customBoneObject.location = [objectXOffset,objectYOffset,0]
+            
+            
     
 
 #make new armature operator
